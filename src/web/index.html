@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="agent-token" content="__APP_TOKEN__">
+  <meta name="color-scheme" content="dark">
+  <title>多模型工作台</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" aria-label="任务导航">
+      <div class="brand"><span class="mark" aria-hidden="true">⌘</span><strong>多模型工作台</strong></div>
+      <button id="new-task" class="button primary sidebar-new"><span aria-hidden="true">＋</span> 新建任务</button>
+      <div class="sidebar-label">任务记录</div>
+      <nav id="tasks" class="task-list" aria-label="任务记录"></nav>
+      <div class="sidebar-bottom">
+        <button id="plugins-button" class="nav-button"><span aria-hidden="true">◇</span> MCP 插件 <span id="plugin-count" class="count"></span></button>
+        <button id="settings-button" class="nav-button"><span aria-hidden="true">⚙</span> 模型与 API Key</button>
+        <div class="local"><span class="dot"></span> 本机工作台</div>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div class="title-wrap"><strong id="task-title">工作台</strong><span id="task-path"></span></div>
+        <button id="activity-toggle" class="button square" aria-label="切换任务详情" title="切换任务详情">▤</button>
+      </header>
+      <section id="conversation" class="conversation" aria-label="任务对话">
+        <div id="welcome" class="welcome">
+          <span class="mark welcome-mark" aria-hidden="true">⌘</span>
+          <h1>下一步，做什么？</h1>
+          <p>选择一个本地项目，用你自己的模型查看代码、提出修改和运行测试。</p>
+          <div class="welcome-actions">
+            <button id="welcome-new" class="button primary">打开项目</button>
+            <button id="welcome-demo" class="button">试用本地演示</button>
+          </div>
+          <button id="welcome-settings" class="text-button">配置 API Key</button>
+        </div>
+        <div id="messages" class="messages" hidden></div>
+      </section>
+      <div id="composer" class="composer-area" hidden>
+        <section id="approval" class="approval" aria-label="待审批操作" hidden></section>
+        <form id="prompt-form" class="composer">
+          <textarea id="prompt" rows="3" aria-label="任务指令" maxlength="50000" placeholder="描述要做的事，或让 Agent 先检查项目…"></textarea>
+          <div class="composer-controls">
+            <div class="selectors">
+              <label><span>模型</span><select id="model" aria-label="模型"></select></label>
+              <label><span>推理</span><select id="effort" aria-label="推理强度"></select></label>
+            </div>
+            <button id="stop" type="button" class="button" hidden>停止</button>
+            <button id="send" class="button primary" type="submit">发送 <span aria-hidden="true">↑</span></button>
+          </div>
+        </form>
+        <div id="composer-status" class="composer-status" aria-live="polite"></div>
+      </div>
+    </main>
+    <aside id="inspector" class="inspector" aria-label="任务详情">
+      <div class="inspector-title"><strong>任务详情</strong></div>
+      <div class="tabbar" role="tablist" aria-label="任务详情分类">
+        <button id="activity-tab" type="button" role="tab" aria-selected="true" aria-controls="activity-pane">活动</button>
+        <button id="changes-tab" type="button" role="tab" aria-selected="false" aria-controls="changes-pane">文件改动<span id="change-count"></span></button>
+      </div>
+      <section id="activity-pane" class="inspector-content" role="tabpanel" aria-labelledby="activity-tab"></section>
+      <section id="changes-pane" class="inspector-content" role="tabpanel" aria-labelledby="changes-tab" hidden></section>
+    </aside>
+  </div>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <dialog id="project-dialog">
+    <div class="dialog-head"><h2>打开本地项目</h2><button class="button square" data-close="project-dialog" aria-label="关闭">×</button></div>
+    <form id="project-form" class="dialog-body">
+      <label class="field">项目文件夹<input id="project-path" required placeholder="D:\Projects\my-app" autocomplete="off"></label>
+      <div class="dialog-actions">
+        <button id="pick-folder" class="button" type="button">浏览文件夹</button>
+        <button class="button primary" type="submit">创建任务</button>
+      </div>
+      <p id="project-error" class="error" role="alert"></p>
+    </form>
+  </dialog>
+  <dialog id="keys-dialog" class="wide">
+    <div class="dialog-head"><h2>模型与 API Key</h2><button class="button square" data-close="keys-dialog" aria-label="关闭">×</button></div>
+    <div class="dialog-body">
+      <p class="muted">填一家的 Key 即可开始。Windows 会加密保存，调用按该供应商的 API 额度计费。</p>
+      <div id="key-rows"></div>
+    </div>
+  </dialog>
+  <dialog id="plugins-dialog" class="wide">
+    <div class="dialog-head"><h2>MCP 插件</h2><button class="button square" data-close="plugins-dialog" aria-label="关闭">×</button></div>
+    <div class="dialog-body">
+      <div id="plugin-rows"></div>
+      <form id="plugin-form">
+        <label class="field">服务器配置 <textarea id="plugin-config" class="mono" rows="9" spellcheck="false" aria-describedby="plugin-help"></textarea></label>
+        <p id="plugin-help" class="muted">支持本地 stdio 和 Streamable HTTP。保存会立即连接启用的服务器，启动命令会以当前 Windows 用户运行。</p>
+        <div class="dialog-actions">
+          <button id="plugin-example" class="button" type="button">载入示例</button>
+          <button class="button primary" type="submit">保存并连接</button>
+        </div>
+        <p id="plugin-error" class="error" role="alert"></p>
+      </form>
+    </div>
+  </dialog>
+  <dialog id="review-dialog" class="wide">
+    <div class="dialog-head"><h2 id="review-title">查看改动</h2><button class="button square" data-close="review-dialog" aria-label="关闭">×</button></div>
+    <div id="review-body" class="dialog-body"></div>
+  </dialog>
+</body>
+</html>
